@@ -2,7 +2,7 @@
 var state = {
   tab:'calc', path:'strep', drug:'all', weight:'', wUnit:'kg', age:'', aUnit:'years',
   conc:{}, open:{}, favs:[], est:false, q:'',
-  pin:false, pq:null, pscore:{ok:0, n:0}
+  pin:false, pq:null, pscore:{ok:0, n:0}, noticeSeen:false
 };
 var KEY = 'pdfd-app-v1';
 function save(){
@@ -10,7 +10,7 @@ function save(){
     localStorage.setItem(KEY, JSON.stringify({
       lang:lang, tab:state.tab, path:state.path, drug:state.drug, weight:state.weight,
       wUnit:state.wUnit, age:state.age, aUnit:state.aUnit, favs:state.favs,
-      pin:state.pin, pscore:state.pscore
+      pin:state.pin, pscore:state.pscore, noticeSeen:state.noticeSeen
     }));
   } catch (e) {}
 }
@@ -21,6 +21,7 @@ function restore(){
   if (r.lang === 'e' || r.lang === 'f') lang = r.lang;
   if (['calc','method','practice','ref','fav'].indexOf(r.tab) >= 0) state.tab = r.tab;
   if (typeof r.pin === 'boolean') state.pin = r.pin;
+  if (typeof r.noticeSeen === 'boolean') state.noticeSeen = r.noticeSeen;
   if (r.pscore && typeof r.pscore.n === 'number') state.pscore = r.pscore;
   if (r.path && PATHS.filter(function(p){ return p.id === r.path; }).length) state.path = r.path;
   if (typeof r.drug === 'string') state.drug = r.drug;
@@ -302,6 +303,15 @@ function chrome(){
   $('#lab-method').textContent = t(UI.tabMethod);
   $('#lab-practice').textContent = t(UI.tabPractice);
   $('#practice-intro').textContent = t(UI.practiceIntro);
+  $('#notice-h').textContent = t(UI.nTitle);
+  $('#notice-lead').textContent = t(UI.nLead);
+  $('#notice-1').textContent = t(UI.n1);
+  $('#notice-2').textContent = t(UI.n2);
+  $('#notice-3').textContent = t(UI.n3);
+  $('#notice-4').textContent = t(UI.n4);
+  $('#notice-ok').textContent = t(UI.nOk);
+  $('#notice-strip-text').textContent = t(UI.nStrip);
+  $('#notice-reopen').textContent = t(UI.nReopen);
   applyPin();
   $('#lab-ref').textContent = t(UI.tabRef);
   $('#lab-fav').textContent = t(UI.tabFav);
@@ -371,12 +381,32 @@ function renderTab(){
   else if (state.tab === 'ref') renderRef();
   else renderFav();
 }
+function openNotice(){
+  var m = document.getElementById('notice');
+  if (!m) return;
+  m.classList.add('is-on');
+  var ok = document.getElementById('notice-ok');
+  if (ok) ok.focus();
+}
+function closeNotice(remember){
+  var m = document.getElementById('notice');
+  if (m) m.classList.remove('is-on');
+  if (remember){ state.noticeSeen = true; save(); }
+}
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){
+    var m = document.getElementById('notice');
+    if (m && m.classList.contains('is-on')) closeNotice(true);
+  }
+});
+
 function setTab(tab, scroll){
   state.tab = tab;
   each('.tab', function(b){ b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
   each('.panel', function(pn){ pn.classList.toggle('is-on', pn.id === 'p-' + tab); });
   renderTab();
   if (scroll) window.scrollTo(0, 0);
+  if (tab === 'practice' && !state.noticeSeen) openNotice();
   save();
 }
 function renderAll(){
@@ -461,6 +491,9 @@ document.addEventListener('click', function(ev){
     if (state.tab === 'fav'){ sigFav = null; renderFav(); }
     return;
   }
+  if (act === 'notice-ok'){ closeNotice(true); return; }
+  if (act === 'notice-open'){ openNotice(); return; }
+  if (act === 'notice-close'){ if (ev.target === el) closeNotice(true); return; }
   if (act === 'pin'){ state.pin = !state.pin; applyPin(); save(); return; }
   if (act === 'check'){ pqFocus = true; checkAnswer(); return; }
   if (act === 'newq'){ pqFocus = true; newQuestion(); renderPractice(); return; }
@@ -902,3 +935,4 @@ window.addEventListener('resize', fitSticky);
 
 renderAll();
 fitSticky();
+if (state.tab === 'practice' && !state.noticeSeen) openNotice();

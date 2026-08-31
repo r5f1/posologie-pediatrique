@@ -93,6 +93,10 @@
   </section>
 
   <section class="panel" id="p-practice" role="tabpanel" aria-labelledby="t-practice">
+    <p class="notice-strip" id="notice-strip">
+      <span id="notice-strip-text"></span>
+      <button type="button" data-act="notice-open" id="notice-reopen"></button>
+    </p>
     <p class="hint" id="practice-intro"></p>
     <div id="practice-body"></div>
   </section>
@@ -112,6 +116,25 @@
     <div class="empty" id="fav-empty" hidden></div>
   </section>
 
+</div>
+
+<div class="modal" id="notice" data-act="notice-close" role="dialog" aria-modal="true" aria-labelledby="notice-title">
+  <div class="modal__card">
+    <h2 class="modal__title" id="notice-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18.4A2 2 0 0 0 3.5 21.4h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        <path d="M12 9v4.5"/><path d="M12 17.2h.01"/>
+      </svg>
+      <span id="notice-h"></span>
+    </h2>
+    <p class="modal__body" id="notice-lead"></p>
+    <ul class="modal__list">
+      <li id="notice-1"></li><li id="notice-2"></li><li id="notice-3"></li><li id="notice-4"></li>
+    </ul>
+    <div class="modal__foot">
+      <button type="button" class="btn btn--go" data-act="notice-ok" id="notice-ok"></button>
+    </div>
+  </div>
 </div>
 
 <nav class="tabbar">
