@@ -42,6 +42,11 @@
     </div>
 
     <div class="controls">
+      <button type="button" class="pin" id="f-pin" data-act="pin" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 4h6l-1 5 3.5 3v2h-11v-2L10 9z"/><path d="M12 14v6"/>
+        </svg>
+      </button>
       <div class="controls__grid">
         <div class="field">
           <label class="field__label" id="l-path" for="f-path"></label>
@@ -83,6 +88,15 @@
     </footer>
   </section>
 
+  <section class="panel" id="p-method" role="tabpanel" aria-labelledby="t-method">
+    <div class="method" id="method-body"></div>
+  </section>
+
+  <section class="panel" id="p-practice" role="tabpanel" aria-labelledby="t-practice">
+    <p class="hint" id="practice-intro"></p>
+    <div id="practice-body"></div>
+  </section>
+
   <section class="panel" id="p-ref" role="tabpanel" aria-labelledby="t-ref">
     <div class="searchrow">
       <input type="search" id="f-search" autocomplete="off">
@@ -106,6 +120,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
         <rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h2M14 12h2M8 16h2M14 16h2"/>
       </svg><span id="lab-calc"></span>
+    </button>
+    <button class="tab" id="t-method" role="tab" data-tab="method" aria-selected="false" aria-controls="p-method">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 5.5c3-1.2 5.5-1.2 9 .5v14c-3.5-1.7-6-1.7-9-.5z"/><path d="M21 5.5c-3-1.2-5.5-1.2-9 .5v14c3.5-1.7 6-1.7 9-.5z"/>
+      </svg><span id="lab-method"></span>
+    </button>
+    <button class="tab" id="t-practice" role="tab" data-tab="practice" aria-selected="false" aria-controls="p-practice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>
+      </svg><span id="lab-practice"></span>
     </button>
     <button class="tab" id="t-ref" role="tab" data-tab="ref" aria-selected="false" aria-controls="p-ref">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">

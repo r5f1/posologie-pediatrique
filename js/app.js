@@ -1,14 +1,16 @@
 /* ================= app state ================= */
 var state = {
   tab:'calc', path:'strep', drug:'all', weight:'', wUnit:'kg', age:'', aUnit:'years',
-  conc:{}, open:{}, favs:[], est:false, q:''
+  conc:{}, open:{}, favs:[], est:false, q:'',
+  pin:false, pq:null, pscore:{ok:0, n:0}
 };
 var KEY = 'pdfd-app-v1';
 function save(){
   try {
     localStorage.setItem(KEY, JSON.stringify({
       lang:lang, tab:state.tab, path:state.path, drug:state.drug, weight:state.weight,
-      wUnit:state.wUnit, age:state.age, aUnit:state.aUnit, favs:state.favs
+      wUnit:state.wUnit, age:state.age, aUnit:state.aUnit, favs:state.favs,
+      pin:state.pin, pscore:state.pscore
     }));
   } catch (e) {}
 }
@@ -17,7 +19,9 @@ function restore(){
   try { r = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
   if (!r) return;
   if (r.lang === 'e' || r.lang === 'f') lang = r.lang;
-  if (r.tab === 'calc' || r.tab === 'ref' || r.tab === 'fav') state.tab = r.tab;
+  if (['calc','method','practice','ref','fav'].indexOf(r.tab) >= 0) state.tab = r.tab;
+  if (typeof r.pin === 'boolean') state.pin = r.pin;
+  if (r.pscore && typeof r.pscore.n === 'number') state.pscore = r.pscore;
   if (r.path && PATHS.filter(function(p){ return p.id === r.path; }).length) state.path = r.path;
   if (typeof r.drug === 'string') state.drug = r.drug;
   ['weight','age'].forEach(function(k){ if (typeof r[k] === 'string') state[k] = r[k]; });
@@ -295,6 +299,10 @@ function chrome(){
   $('#foot-credit').textContent = t(UI.credit);
   $('#foot-text').textContent = t(UI.foot);
   $('#lab-calc').textContent = t(UI.tabCalc);
+  $('#lab-method').textContent = t(UI.tabMethod);
+  $('#lab-practice').textContent = t(UI.tabPractice);
+  $('#practice-intro').textContent = t(UI.practiceIntro);
+  applyPin();
   $('#lab-ref').textContent = t(UI.tabRef);
   $('#lab-fav').textContent = t(UI.tabFav);
   sIn.placeholder = t(UI.search);
@@ -358,6 +366,8 @@ function renderFav(){
 
 function renderTab(){
   if (state.tab === 'calc') renderCalc();
+  else if (state.tab === 'method') renderMethod();
+  else if (state.tab === 'practice') renderPractice();
   else if (state.tab === 'ref') renderRef();
   else renderFav();
 }
@@ -451,6 +461,10 @@ document.addEventListener('click', function(ev){
     if (state.tab === 'fav'){ sigFav = null; renderFav(); }
     return;
   }
+  if (act === 'pin'){ state.pin = !state.pin; applyPin(); save(); return; }
+  if (act === 'check'){ pqFocus = true; checkAnswer(); return; }
+  if (act === 'newq'){ pqFocus = true; newQuestion(); renderPractice(); return; }
+  if (act === 'reveal'){ revealAnswer(); return; }
   if (act === 'copy'){
     var q = el.getAttribute('data-q'), label = el.textContent;
     var done = function(){ el.textContent = t(UI.askDone); setTimeout(function(){ el.textContent = label; }, 1800); };
@@ -490,6 +504,282 @@ $('#f-est').addEventListener('click', function(){
   state.wUnit = 'kg'; state.weight = String(est); wIn.value = est; state.est = true;
   renderTab(); save();
 });
+
+/* ================= the control bar gets out of the way ================= */
+function applyPin(){
+  var btn = document.getElementById('f-pin');
+  if (btn){
+    btn.setAttribute('aria-pressed', state.pin ? 'true' : 'false');
+    var lbl = t(state.pin ? UI.pinOn : UI.pinOff);
+    btn.setAttribute('title', lbl);
+    btn.setAttribute('aria-label', lbl);
+  }
+  if (state.pin) tuck(false);
+}
+function tuck(hide){
+  var c = document.querySelector('.controls');
+  if (c) c.classList.toggle('is-tucked', !!hide);
+}
+(function(){
+  var lastY = window.pageYOffset || 0, ticking = false;
+  function onScroll(){
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function(){
+      ticking = false;
+      var y = window.pageYOffset || 0;
+      if (state.pin || state.tab !== 'calc'){ lastY = y; return; }
+      var inBar = document.activeElement && document.activeElement.closest
+                  && document.activeElement.closest('.controls');
+      if (inBar){ lastY = y; return; }
+      if (y > lastY + 5 && y > 240) tuck(true);
+      else if (y < lastY - 5) tuck(false);
+      lastY = y;
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+})();
+
+/* ================= how to calculate ================= */
+function renderMethod(){
+  var h = HOWTO.map(function(s){
+    return '<section class="m-sec"><h2>' + t(s.h) + '</h2><p>' + t(s.p) + '</p>'
+      + (s.f ? '<p class="m-form">' + t(s.f) + '</p>' : '') + '</section>';
+  }).join('');
+
+  h += '<section class="m-sec m-ex rv"><h2>' + t(HOWEX.title) + '</h2>'
+    + '<p>' + t(HOWEX.order) + '</p><ol>'
+    + HOWEX.steps.map(function(x){ return '<li>' + t(x) + '</li>'; }).join('')
+    + '</ol><p class="m-form">' + t(HOWEX.answer) + '</p></section>';
+
+  h += '<section class="m-sec"><h2>' + t(HOWWRONG.title) + '</h2><ul class="m-list">'
+    + HOWWRONG.items.map(function(x){ return '<li>' + t(x) + '</li>'; }).join('')
+    + '</ul></section>';
+
+  $('#method-body').innerHTML = h;
+  reveal();
+}
+
+/* ================= practice mode ================= */
+function L(e, f){ return lang === 'f' ? f : e; }
+var pqFocus = false;
+
+var POOL = (function(){
+  var out = [];
+  PATHS.forEach(function(p){
+    p.drugs.forEach(function(d){
+      if (typeof d.mgkg !== 'number') return;
+      if (d.kind !== 'daily' && d.kind !== 'dose') return;
+      if (!d.conc || !d.conc.length) return;
+      out.push({p:p, d:d});
+    });
+  });
+  return out;
+})();
+
+function pnum(d, w){
+  var o = {};
+  if (d.kind === 'daily'){
+    var rawDay = d.mgkg * w, day = rawDay;
+    if (d.maxDayKg) day = Math.min(day, d.maxDayKg * w);
+    if (d.maxDay)   day = Math.min(day, d.maxDay);
+    var dose = day / d.doses;
+    if (d.maxDose && dose > d.maxDose){ dose = d.maxDose; day = dose * d.doses; }
+    o.rawDay = rawDay; o.rawDose = rawDay / d.doses;
+    o.day = day; o.dose = dose; o.capped = day < rawDay - 1e-6;
+  } else {
+    var rawDose = d.mgkg * w, dz = rawDose;
+    if (d.maxDose && dz > d.maxDose) dz = d.maxDose;
+    o.rawDose = rawDose; o.dose = dz; o.day = null;
+    o.capped = dz < rawDose - 1e-6;
+  }
+  return o;
+}
+
+function newQuestion(){
+  var q = POOL[Math.floor(Math.random() * POOL.length)];
+  var w = Math.round((4 + Math.random() * 36) * 2) / 2;
+  var conc = q.d.conc[Math.floor(Math.random() * q.d.conc.length)];
+  var kinds = q.d.kind === 'daily'
+    ? (q.d.doses > 1 ? ['perDose','perDose','perDay','volume','volume'] : ['perDose','volume','volume'])
+    : ['perDose','volume','volume'];
+  state.pq = {
+    pid:q.p.id, di:q.p.drugs.indexOf(q.d), w:w,
+    ci:q.d.conc.indexOf(conc),
+    type:kinds[Math.floor(Math.random() * kinds.length)],
+    done:false, fb:null
+  };
+}
+function pqParts(){
+  var q = state.pq;
+  var p = PATHS.filter(function(x){ return x.id === q.pid; })[0];
+  var d = p.drugs[q.di];
+  return {p:p, d:d, w:q.w, conc:d.conc[q.ci], type:q.type, n:pnum(d, q.w)};
+}
+function pqAnswer(){
+  var k = pqParts();
+  if (k.type === 'perDay')  return k.n.day;
+  if (k.type === 'volume')  return k.n.dose / k.conc.m;
+  return k.n.dose;
+}
+function pqUnit(){ return state.pq.type === 'volume' ? 'mL' : 'mg'; }
+function fmtAns(v){ return state.pq.type === 'volume' ? fmtMl(v) : fmtMg(v); }
+
+function pqSteps(){
+  var k = pqParts(), d = k.d, n = k.n, S = [];
+  if (d.kind === 'daily'){
+    S.push(dec(d.mgkg) + ' mg/kg × ' + dec(k.w) + ' kg = ' + fmtMg(n.rawDay) + L(' mg for the whole day', ' mg pour toute la journée'));
+    if (n.capped) S.push(L('That is above the maximum, so the maximum becomes the dose: ',
+                           'C\'est au-dessus du maximum, donc le maximum devient la dose : ') + fmtMg(n.day) + L(' mg per day', ' mg par jour'));
+    if (k.type !== 'perDay'){
+      if (d.doses > 1)
+        S.push(fmtMg(n.day) + ' mg ÷ ' + d.doses + L(' doses = ', ' prises = ') + fmtMg(n.dose) + L(' mg per dose', ' mg par prise'));
+      else
+        S.push(L('It is given once a day, so the whole day is one dose: ', 'Il se donne une fois par jour, donc toute la journée tient en une seule prise : ') + fmtMg(n.dose) + ' mg');
+    }
+  } else {
+    S.push(dec(d.mgkg) + ' mg/kg × ' + dec(k.w) + ' kg = ' + fmtMg(n.rawDose) + L(' mg per dose', ' mg par prise'));
+    if (n.capped) S.push(L('That is above the maximum of ', 'C\'est au-dessus du maximum de ') + fmtMg(d.maxDose)
+                         + L(' mg per dose, so give ', ' mg par prise, donc on donne ') + fmtMg(n.dose) + ' mg');
+  }
+  if (k.type === 'volume'){
+    S.push(L('The bottle holds ', 'La bouteille contient ') + dec(k.conc.m) + L(' mg in every mL', ' mg dans chaque mL')
+           + ' (' + t(k.conc.l) + ')');
+    S.push(fmtMg(n.dose) + ' mg ÷ ' + dec(k.conc.m) + ' mg/mL = ' + fmtMl(n.dose / k.conc.m) + ' mL');
+  }
+  return S;
+}
+
+function pqTraps(){
+  var k = pqParts(), d = k.d, n = k.n, c = k.conc, T2 = [], ans = pqAnswer();
+  if (k.type === 'perDose'){
+    if (d.kind === 'daily' && d.doses > 1) T2.push({v:n.day, m:L(
+      'That is the total for the whole day. Divide it by the ' + d.doses + ' doses to get one dose.',
+      'C\'est le total pour toute la journée. Divisez-le par les ' + d.doses + ' prises pour obtenir une seule dose.')});
+    if (n.capped) T2.push({v:n.rawDose, m:L(
+      'Your arithmetic is right, but you went past the maximum. When the calculated dose is higher than the maximum, the maximum is the dose.',
+      'Votre calcul est bon, mais vous avez dépassé le maximum. Quand la dose calculée dépasse le maximum, c\'est le maximum qui devient la dose.')});
+    T2.push({v:n.dose / c.m, m:L(
+      'That is the volume in millilitres. This question asks for milligrams — stop one step earlier.',
+      'C\'est le volume en millilitres. Cette question demande des milligrammes — arrêtez-vous une étape plus tôt.')});
+  }
+  if (k.type === 'perDay'){
+    T2.push({v:n.dose, m:L(
+      'That is one dose. Multiply it by the ' + d.doses + ' doses to get the total for 24 hours.',
+      'C\'est une seule prise. Multipliez-la par les ' + d.doses + ' prises pour obtenir le total sur 24 heures.')});
+    if (n.capped) T2.push({v:n.rawDay, m:L(
+      'You multiplied correctly, but that lands above the maximum for the day. The maximum is the answer.',
+      'La multiplication est bonne, mais elle dépasse le maximum pour la journée. C\'est le maximum, la réponse.')});
+  }
+  if (k.type === 'volume'){
+    T2.push({v:n.dose, m:L(
+      'Those are the milligrams. Now divide by the milligrams in one millilitre to turn them into a volume.',
+      'Ce sont les milligrammes. Divisez maintenant par les milligrammes contenus dans un millilitre pour obtenir un volume.')});
+    T2.push({v:n.dose * c.m, m:L(
+      'You multiplied by the concentration. To go from milligrams to millilitres you divide by it.',
+      'Vous avez multiplié par la concentration. Pour passer des milligrammes aux millilitres, on divise.')});
+    if (t(c.l).indexOf('5 mL') >= 0) T2.push({v:n.dose / (c.m * 5), m:L(
+      'You divided by the milligrams printed on the label instead of the milligrams in one millilitre. Divide the label first: ' + dec(c.m * 5) + ' ÷ 5 = ' + dec(c.m) + ' mg/mL.',
+      'Vous avez divisé par les milligrammes inscrits sur l\'étiquette au lieu des milligrammes contenus dans un millilitre. Divisez d\'abord l\'étiquette : ' + dec(c.m * 5) + ' ÷ 5 = ' + dec(c.m) + ' mg/mL.')});
+    if (d.kind === 'daily' && d.doses > 1) T2.push({v:n.day / c.m, m:L(
+      'That is the volume for the whole day. Divide the daily dose by the ' + d.doses + ' doses before you convert it to millilitres.',
+      'C\'est le volume pour toute la journée. Divisez la dose quotidienne par les ' + d.doses + ' prises avant de la convertir en millilitres.')});
+  }
+  T2.push({v:ans * 10, m:L('The digits are right, the decimal point is one place out — your answer is ten times too big.',
+                           'Les chiffres sont bons, mais la virgule a glissé d\'une place — votre réponse est dix fois trop grande.')});
+  T2.push({v:ans / 10, m:L('The digits are right, the decimal point is one place out — your answer is ten times too small.',
+                           'Les chiffres sont bons, mais la virgule a glissé d\'une place — votre réponse est dix fois trop petite.')});
+  T2.push({v:d.mgkg, m:L('That is the mg/kg figure straight from the order. It still has to be multiplied by the weight.',
+                         'C\'est le chiffre mg/kg tel quel dans l\'ordonnance. Il reste à le multiplier par le poids.')});
+  return T2;
+}
+
+function near(a, b){ return Math.abs(a - b) <= Math.max(Math.abs(b) * 0.005, 0.049); }
+
+function renderPractice(){
+  if (!state.pq) newQuestion();
+  var k = pqParts(), q = state.pq;
+  var maxTxt = '';
+  if (k.d.maxDay)       maxTxt = L(' (max ', ' (max ') + fmtMg(k.d.maxDay) + L(' mg/day)', ' mg/jour)');
+  else if (k.d.maxDose) maxTxt = L(' (max ', ' (max ') + fmtMg(k.d.maxDose) + L(' mg/dose)', ' mg/dose)');
+
+  var ask = k.type === 'perDay' ? t(UI.askDay) : (k.type === 'volume' ? t(UI.askVol) : t(UI.askDose));
+
+  var html = '<article class="rx pq rv">'
+    + '<div class="pq__order"><span class="mono__k">' + t(UI.order) + '</span>'
+    + '<p class="pq__text">' + t(baseName(k.d.n)) + ' ' + ruleLine(k.d) + maxTxt + '</p>'
+    + '<p class="pq__meta"><strong>' + t(UI.child) + ' : ' + dec(k.w) + ' kg</strong>'
+    + (k.type === 'volume' ? '<br>' + t(UI.youHave) + ' : ' + t(k.conc.l) : '') + '</p></div>'
+    + '<p class="pq__ask">' + ask + '</p>'
+    + '<div class="pq__row">'
+    + '<input type="text" id="pq-ans" inputmode="decimal" autocomplete="off" aria-label="' + esc(t(UI.yourAnswer)) + '" placeholder="0">'
+    + '<span class="pq__unit">' + pqUnit() + '</span>'
+    + '<button type="button" class="btn btn--go" data-act="check">' + t(UI.check) + '</button>'
+    + '</div>'
+    + '<div id="pq-fb">' + (q.fb || '') + '</div>'
+    + '<div class="pq__foot">'
+    + '<div class="ask" style="gap:8px">'
+    + '<button type="button" class="btn btn--ghost" data-act="newq">' + t(UI.newQ) + '</button>'
+    + (q.done ? '' : '<button type="button" class="btn btn--ghost" data-act="reveal">' + t(UI.reveal) + '</button>')
+    + '</div>'
+    + '<span class="pq__score">' + state.pscore.ok + ' / ' + state.pscore.n + ' ' + t(UI.score) + '</span>'
+    + '</div></article>';
+
+  $('#practice-body').innerHTML = html;
+  var inp = document.getElementById('pq-ans');
+  if (inp){
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') checkAnswer(); });
+    if (pqFocus) inp.focus();
+  }
+  reveal();
+}
+
+function stepsHtml(){
+  return '<ol>' + pqSteps().map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>';
+}
+
+function checkAnswer(){
+  var inp = document.getElementById('pq-ans');
+  if (!inp) return;
+  var raw = (inp.value || '').replace(',', '.').trim();
+  var v = parseFloat(raw);
+  if (!isFinite(v)){
+    state.pq.fb = '<div class="fb fb--tell">' + t(UI.needNum) + '</div>';
+    $('#pq-fb').innerHTML = state.pq.fb;
+    return;
+  }
+  var ans = pqAnswer(), first = !state.pq.done;
+  if (near(v, ans)){
+    if (first){ state.pscore.n++; state.pscore.ok++; }
+    state.pq.done = true;
+    state.pq.fb = '<div class="fb fb--ok"><b>' + t(UI.right) + '</b>' + stepsHtml() + '</div>';
+  } else {
+    if (first) state.pscore.n++;
+    var why = null, traps = pqTraps();
+    for (var i = 0; i < traps.length; i++){
+      if (near(v, traps[i].v)){ why = traps[i].m; break; }
+    }
+    state.pq.done = true;
+    state.pq.fb = '<div class="fb fb--no"><b>' + t(UI.wrong) + '</b>'
+      + '<p>' + (why || t(UI.genericWrong)) + '</p>'
+      + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(ans) + ' ' + pqUnit() + '.</strong></p>'
+      + stepsHtml() + '</div>';
+  }
+  save();
+  renderPractice();
+  var again = document.getElementById('pq-ans');
+  if (again) again.value = raw.replace('.', lang === 'f' ? ',' : '.');
+}
+
+function revealAnswer(){
+  if (!state.pq) return;
+  if (!state.pq.done){ state.pscore.n++; state.pq.done = true; }
+  state.pq.fb = '<div class="fb fb--tell"><b>' + t(UI.shown) + '</b>'
+    + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(pqAnswer()) + ' ' + pqUnit() + '.</strong></p>'
+    + stepsHtml() + '</div>';
+  save();
+  renderPractice();
+}
 
 /* register the service worker so the app keeps working offline */
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){

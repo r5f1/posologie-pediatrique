@@ -70,6 +70,31 @@ var UI = {
   favOn: T('In favourites', 'Dans les favoris'),
   usingW: T('Doses below use the weight from the Calculator tab.', 'Les doses ci-dessous utilisent le poids de l\'onglet Calcul.'),
   setW: T('Set a weight on the Calculator tab to see doses here.', 'Entrez un poids dans l\'onglet Calcul pour voir les doses ici.'),
+  tabMethod: T('Method', 'Méthode'),
+  tabPractice: T('Practice', 'Pratique'),
+  pinOn: T('Keep this bar visible', 'Garder cette barre visible'),
+  pinOff: T('Let this bar hide when you scroll down', 'Laisser la barre se cacher en défilant'),
+  order: T('Prescription', 'Ordonnance'),
+  child: T('Child', 'Enfant'),
+  youHave: T('You have', 'Vous avez'),
+  askDose: T('What is the dose for ONE administration, in mg?', 'Quelle est la dose pour UNE prise, en mg ?'),
+  askDay: T('What is the total dose for 24 hours, in mg?', 'Quelle est la dose totale pour 24 heures, en mg ?'),
+  askVol: T('What volume do you draw up for ONE dose, in mL?', 'Quel volume prélevez-vous pour UNE prise, en mL ?'),
+  yourAnswer: T('Your answer', 'Votre réponse'),
+  check: T('Check', 'Vérifier'),
+  newQ: T('New question', 'Nouvelle question'),
+  reveal: T('Show me', 'Voir la réponse'),
+  right: T('Correct.', 'Exact.'),
+  wrong: T('Not quite.', 'Pas tout à fait.'),
+  shown: T('Here is the calculation.', 'Voici le calcul.'),
+  howGot: T('Step by step', 'Étape par étape'),
+  theAnswer: T('The answer is', 'La réponse est'),
+  score: T('correct', 'bonnes'),
+  needNum: T('Type a number first.', 'Entrez d\'abord un nombre.'),
+  genericWrong: T('That is not the number this calculation gives. Follow it through step by step:',
+                  'Ce n\'est pas le nombre que donne ce calcul. Reprenons étape par étape :'),
+  practiceIntro: T('Real orders, random weights. Work out the answer on paper, type it in, and it will tell you exactly where the arithmetic went wrong.',
+                   'De vraies ordonnances, des poids au hasard. Faites le calcul sur papier, entrez la réponse, et l\'application vous dira exactement où le calcul a dérapé.'),
   credit: T('A nursing-student study project. Not affiliated with any hospital, school or publisher, and not a clinical reference.',
             'Projet d\'étude d\'une étudiante en soins infirmiers. Sans lien avec un hôpital, une école ou un éditeur, et ce n\'est pas une référence clinique.'),
   foot: T('Doses reflect common Quebec and Canadian pediatric outpatient practice for otherwise healthy children with normal kidney and liver function. Concentrations listed are the products usually stocked in Quebec pharmacies — check the bottle in your hand. Neonates, renal impairment, obesity, IV routes and local protocols all change these numbers.',
@@ -520,3 +545,63 @@ var M = {
      "Un grand verre ressort aussitôt. La refroidir, ou la congeler en sucettes glacées, rend le goût supportable.")}
 };
 function monoFor(d){ return M[d.n.e.replace(' (high dose)','')] || null; }
+
+/* ================= how to calculate ================= */
+var HOWTO = [
+{h:T('The one rule','La règle de base'),
+ p:T('Every weight-based dose starts the same way: take the milligrams per kilogram from the order and multiply by the child\'s weight in kilograms. Everything else is bookkeeping on top of that.',
+     'Toute dose selon le poids commence de la même façon : prenez les milligrammes par kilogramme inscrits dans l\'ordonnance et multipliez par le poids de l\'enfant en kilogrammes. Tout le reste n\'est que de la comptabilité par-dessus.'),
+ f:T('dose = mg/kg × weight in kg','dose = mg/kg × poids en kg')},
+
+{h:T('Per day, or per dose?','Par jour, ou par prise ?'),
+ p:T('This is where most errors happen. An order written mg/kg/DAY gives the total for 24 hours — you still have to divide it by the number of doses to get what goes in the syringe. An order written mg/kg/DOSE is already the amount for one administration: do not divide it. Read which one you have before you touch a calculator.',
+     'C\'est ici que se produisent la plupart des erreurs. Une ordonnance en mg/kg/JOUR donne le total pour 24 heures — il faut encore diviser par le nombre de prises pour obtenir ce qu\'on met dans la seringue. Une ordonnance en mg/kg/DOSE est déjà la quantité pour une seule administration : ne la divisez pas. Vérifiez laquelle vous avez avant de toucher à la calculatrice.'),
+ f:T('per dose = total per day ÷ number of doses','dose par prise = total par jour ÷ nombre de prises')},
+
+{h:T('From milligrams to millilitres','Des milligrammes aux millilitres'),
+ p:T('A bottle labelled 250 mg / 5 mL does not contain 250 mg in a millilitre. Divide the label to find what one millilitre actually holds: 250 ÷ 5 = 50 mg in every mL. Then divide your dose by that number. Dividing by the 250 instead of the 50 is the single most common volume error.',
+     'Une bouteille étiquetée 250 mg / 5 mL ne contient pas 250 mg dans un millilitre. Divisez l\'étiquette pour trouver ce que contient vraiment un millilitre : 250 ÷ 5 = 50 mg par mL. Ensuite, divisez votre dose par ce nombre. Diviser par 250 au lieu de 50 est de loin l\'erreur de volume la plus fréquente.'),
+ f:T('mL = dose in mg ÷ mg per mL','mL = dose en mg ÷ mg par mL')},
+
+{h:T('Pounds to kilograms','Des livres aux kilogrammes'),
+ p:T('Parents give you pounds. Divide by 2.2 before anything else. A 33 lb child is 15 kg. Dosing on the pound number gives you roughly twice the dose, and it is the error most likely to actually hurt a child.',
+     'Les parents vous donnent des livres. Divisez par 2,2 avant toute chose. Un enfant de 33 lb pèse 15 kg. Calculer sur le nombre de livres donne environ le double de la dose, et c\'est l\'erreur la plus susceptible de vraiment nuire à un enfant.'),
+ f:T('kg = pounds ÷ 2.2','kg = livres ÷ 2,2')},
+
+{h:T('The ceiling','Le plafond'),
+ p:T('Every drug has an adult maximum, and a big teenager will calculate past it. When your number lands above the maximum, the maximum IS the dose — you do not give more just because the arithmetic says so. A 60 kg teenager on amoxicillin 50 mg/kg/day calculates to 3000 mg, but the maximum is 1000 mg/day, so the answer is 1000.',
+     'Chaque médicament a un maximum adulte, et un grand adolescent va le dépasser au calcul. Quand votre nombre dépasse le maximum, le maximum EST la dose — on n\'en donne pas plus simplement parce que le calcul le dit. Un adolescent de 60 kg sous amoxicilline 50 mg/kg/jour arrive à 3000 mg, mais le maximum est de 1000 mg/jour : la réponse est donc 1000.'),
+ f:T('if calculated > maximum, give the maximum','si calculé > maximum, donner le maximum')}
+];
+
+var HOWEX = {
+ title:T('A worked example, all the way through','Un exemple complet, du début à la fin'),
+ order:T('Amoxicillin 90 mg/kg/day, divided twice daily, for a child of 14 kg. On hand: a 250 mg / 5 mL suspension.',
+         'Amoxicilline 90 mg/kg/jour, divisé en deux prises, pour un enfant de 14 kg. En main : une suspension de 250 mg / 5 mL.'),
+ steps:[
+  T('90 mg/kg × 14 kg = 1260 mg for the whole day','90 mg/kg × 14 kg = 1260 mg pour toute la journée'),
+  T('The maximum is 4000 mg/day, so 1260 is fine — no capping needed','Le maximum est de 4000 mg/jour, donc 1260 passe — aucun plafonnement nécessaire'),
+  T('1260 mg ÷ 2 doses = 630 mg per dose','1260 mg ÷ 2 prises = 630 mg par prise'),
+  T('250 mg ÷ 5 mL = 50 mg in every millilitre','250 mg ÷ 5 mL = 50 mg dans chaque millilitre'),
+  T('630 mg ÷ 50 mg/mL = 12.6 mL per dose','630 mg ÷ 50 mg/mL = 12,6 mL par prise')
+ ],
+ answer:T('Give 12.6 mL twice a day.','Donner 12,6 mL deux fois par jour.')
+};
+
+var HOWWRONG = {
+ title:T('Where it goes wrong','Où ça dérape'),
+ items:[
+  T('Giving the whole day\'s total as a single dose. Always ask yourself: day, or dose?',
+    'Donner le total de la journée en une seule prise. Demandez-vous toujours : jour, ou prise ?'),
+  T('Dividing an order that was already written per dose, so the child gets half of what was prescribed.',
+    'Diviser une ordonnance déjà écrite par prise, si bien que l\'enfant reçoit la moitié de ce qui était prescrit.'),
+  T('Dividing by the milligrams printed on the label instead of the milligrams in one millilitre.',
+    'Diviser par les milligrammes inscrits sur l\'étiquette au lieu des milligrammes contenus dans un millilitre.'),
+  T('Calculating on pounds. Convert first, every single time.',
+    'Calculer sur les livres. Convertissez d\'abord, chaque fois.'),
+  T('Sailing past the adult maximum on a teenager.',
+    'Dépasser le maximum adulte chez un adolescent.'),
+  T('A decimal in the wrong place. Sanity-check the answer: a syringe holds 10 mL, so 45 mL for a toddler means you slipped a decimal somewhere.',
+    'Une virgule au mauvais endroit. Vérifiez la vraisemblance : une seringue contient 10 mL, alors 45 mL pour un tout-petit veut dire qu\'une virgule a glissé.')
+ ]
+};
