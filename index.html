@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pediatric dosage for dummies</title>
+<meta name="description" content="Weight-based pediatric dosing by diagnosis, in milligrams and millilitres, with Quebec drug concentrations. Bilingual study tool.">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Posologie">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <h1 id="h1"></h1>
+    <div class="toggle" role="group" aria-label="Language / Langue">
+      <button type="button" data-lang="e" aria-pressed="true">EN</button>
+      <button type="button" data-lang="f" aria-pressed="false">FR</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="panel" id="p-calc" role="tabpanel" aria-labelledby="t-calc">
+    <div class="intro">
+      <p class="sub" id="sub"></p>
+      <p class="caution" id="caution"></p>
+    </div>
+
+    <div class="controls">
+      <div class="controls__grid">
+        <div class="field">
+          <label class="field__label" id="l-path" for="f-path"></label>
+          <select id="f-path"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" id="l-drug" for="f-drug"></label>
+          <select id="f-drug"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" id="l-weight" for="f-weight"></label>
+          <div class="combo">
+            <input id="f-weight" type="number" min="0" step="0.1" inputmode="decimal" placeholder="0.0">
+            <div class="toggle" role="group" aria-label="kg / lb">
+              <button type="button" data-wunit="kg" aria-pressed="true">kg</button>
+              <button type="button" data-wunit="lb" aria-pressed="false">lb</button>
+            </div>
+          </div>
+          <button class="hintbtn" type="button" id="f-est"></button>
+        </div>
+        <div class="field">
+          <label class="field__label" id="l-age" for="f-age"></label>
+          <div class="combo">
+            <input id="f-age" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+            <div class="toggle" role="group" aria-label="Age unit">
+              <button type="button" data-aunit="years" aria-pressed="true" id="u-yr"></button>
+              <button type="button" data-aunit="months" aria-pressed="false" id="u-mo"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="bar rv" id="bar"></p>
+    <div class="grid" id="grid"></div>
+    <footer class="rv" id="foot">
+      <p class="credit" id="foot-credit"></p>
+      <p id="foot-text"></p>
+    </footer>
+  </section>
+
+  <section class="panel" id="p-ref" role="tabpanel" aria-labelledby="t-ref">
+    <div class="searchrow">
+      <input type="search" id="f-search" autocomplete="off">
+    </div>
+    <p class="hint" id="ref-hint"></p>
+    <div class="grid" id="ref-grid"></div>
+    <div class="empty" id="ref-empty" hidden></div>
+  </section>
+
+  <section class="panel" id="p-fav" role="tabpanel" aria-labelledby="t-fav">
+    <p class="hint" id="fav-hint"></p>
+    <div class="grid" id="fav-grid"></div>
+    <div class="empty" id="fav-empty" hidden></div>
+  </section>
+
+</div>
+
+<nav class="tabbar">
+  <div class="tabbar__in" role="tablist">
+    <button class="tab" id="t-calc" role="tab" data-tab="calc" aria-selected="true" aria-controls="p-calc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h2M14 12h2M8 16h2M14 16h2"/>
+      </svg><span id="lab-calc"></span>
+    </button>
+    <button class="tab" id="t-ref" role="tab" data-tab="ref" aria-selected="false" aria-controls="p-ref">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v18H6.5A1.5 1.5 0 0 1 5 19.5z"/><path d="M9.5 3v18"/>
+      </svg><span id="lab-ref"></span>
+    </button>
+    <button class="tab" id="t-fav" role="tab" data-tab="fav" aria-selected="false" aria-controls="p-fav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+        <path d="M12 3.6l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>
+      </svg><span id="lab-fav"></span>
+    </button>
+  </div>
+</nav>
+
+<script src="./js/data.js"></script>
+<script src="./js/app.js"></script>
+</body>
+</html>
