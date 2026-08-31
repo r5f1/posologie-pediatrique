@@ -269,6 +269,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .modal__list{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px}
 .modal__list li{position:relative; padding-left:17px; font-size:13.5px; line-height:1.55; color:var(--ink-2)}
 .modal__list li::before{content:""; position:absolute; left:0; top:8px; width:6px; height:6px; border-radius:50%; background:var(--stop)}
+.modal__list--blue li::before{background:var(--blue)}
 .modal__foot{display:flex; justify-content:flex-end; margin-top:2px}
 .notice-strip{
   display:flex; gap:12px; align-items:center; flex-wrap:wrap;

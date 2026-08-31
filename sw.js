@@ -1,6 +1,6 @@
 /* Cache the whole app so it opens with no connection.
    Bump CACHE when you change any file, or browsers keep serving the old one. */
-const CACHE = 'posologie-v5';
+const CACHE = 'posologie-v6';
 const SHELL = [
   './',
   './index.html',
