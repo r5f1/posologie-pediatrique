@@ -577,6 +577,28 @@ var POOL = (function(){
   return out;
 })();
 
+function durDays(d){
+  if (!d.dur || !d.dur.e) return null;
+  var m = String(d.dur.e).match(/^(\d+)(?:[–-](\d+))?\s*days?/);
+  if (!m) return null;
+  var ns = [parseInt(m[1], 10)];
+  if (m[2]) ns.push(parseInt(m[2], 10));
+  return ns[Math.floor(Math.random() * ns.length)];
+}
+function freqAbbr(d){
+  if (d.kind !== 'daily') return '';
+  return {1:'DIE (q24h)', 2:'BID (q12h)', 3:'TID (q8h)', 4:'QID (q6h)'}[d.doses] || '';
+}
+var BOTTLES = [30, 50, 60, 75, 100, 150, 200];
+function pickBottle(tot){
+  var big = BOTTLES[BOTTLES.length - 1];
+  var good = BOTTLES.filter(function(b){ var r = tot / b; return r > 1.05 && Math.ceil(r) <= 5; });
+  if (good.length) return good[Math.floor(Math.random() * good.length)];
+  if (tot > big) return big;                                  // a long course: biggest bottle on the shelf
+  var fits = BOTTLES.filter(function(b){ return b >= tot; }); // a small course: smallest bottle that holds it
+  return fits.length ? fits[0] : big;
+}
+
 function pnum(d, w){
   var o = {};
   if (d.kind === 'daily'){
@@ -599,13 +621,30 @@ function pnum(d, w){
 function newQuestion(){
   var q = POOL[Math.floor(Math.random() * POOL.length)];
   var w = Math.round((4 + Math.random() * 36) * 2) / 2;
-  var conc = q.d.conc[Math.floor(Math.random() * q.d.conc.length)];
+  // pick the strength a pharmacist would: the weakest one that still keeps a
+  // dose down to a measurable volume, otherwise the strongest on the shelf
+  var n0 = pnum(q.d, w);
+  var byStrength = q.d.conc.slice().sort(function(x, y){ return y.m - x.m; });
+  var conc = byStrength[0];
+  for (var ci = byStrength.length - 1; ci >= 0; ci--){
+    if (n0.dose / byStrength[ci].m <= 15){ conc = byStrength[ci]; break; }
+  }
+  var oral = q.d.route && q.d.route.e === 'PO';
+  var days = (q.d.kind === 'daily' && oral && w <= 25) ? durDays(q.d) : null;
   var kinds = q.d.kind === 'daily'
     ? (q.d.doses > 1 ? ['perDose','perDose','perDay','volume','volume'] : ['perDose','volume','volume'])
     : ['perDose','volume','volume'];
+  var tot = null, bottle = null;
+  if (days){
+    var nn = pnum(q.d, w);
+    tot = (nn.dose / conc.m) * q.d.doses * days;
+    bottle = pickBottle(tot);
+    kinds = kinds.concat(['courseVol','courseVol','bottles','bottles']);
+  }
   state.pq = {
     pid:q.p.id, di:q.p.drugs.indexOf(q.d), w:w,
     ci:q.d.conc.indexOf(conc),
+    days:days, bottle:bottle,
     type:kinds[Math.floor(Math.random() * kinds.length)],
     done:false, fb:null
   };
@@ -614,16 +653,32 @@ function pqParts(){
   var q = state.pq;
   var p = PATHS.filter(function(x){ return x.id === q.pid; })[0];
   var d = p.drugs[q.di];
-  return {p:p, d:d, w:q.w, conc:d.conc[q.ci], type:q.type, n:pnum(d, q.w)};
+  return {p:p, d:d, w:q.w, conc:d.conc[q.ci], type:q.type, n:pnum(d, q.w), days:q.days, bottle:q.bottle};
 }
+function courseVol(k){ return (k.n.dose / k.conc.m) * k.d.doses * k.days; }
 function pqAnswer(){
   var k = pqParts();
-  if (k.type === 'perDay')  return k.n.day;
-  if (k.type === 'volume')  return k.n.dose / k.conc.m;
+  if (k.type === 'perDay')   return k.n.day;
+  if (k.type === 'volume')   return k.n.dose / k.conc.m;
+  if (k.type === 'courseVol')return courseVol(k);
+  if (k.type === 'bottles')  return Math.ceil(courseVol(k) / k.bottle - 1e-9);
   return k.n.dose;
 }
-function pqUnit(){ return state.pq.type === 'volume' ? 'mL' : 'mg'; }
-function fmtAns(v){ return state.pq.type === 'volume' ? fmtMl(v) : fmtMg(v); }
+function pqUnit(){
+  var ty = state.pq.type;
+  if (ty === 'volume' || ty === 'courseVol') return 'mL';
+  if (ty === 'bottles') return t(UI.unitBottles);
+  return 'mg';
+}
+function unitFor(v){
+  if (state.pq.type === 'bottles') return t(Math.round(v) === 1 ? UI.unitBottle : UI.unitBottles);
+  return pqUnit();
+}
+function fmtAns(v){
+  var ty = state.pq.type;
+  if (ty === 'bottles') return dec(Math.round(v));
+  return (ty === 'volume' || ty === 'courseVol') ? fmtMl(v) : fmtMg(v);
+}
 
 function pqSteps(){
   var k = pqParts(), d = k.d, n = k.n, S = [];
@@ -642,10 +697,25 @@ function pqSteps(){
     if (n.capped) S.push(L('That is above the maximum of ', 'C\'est au-dessus du maximum de ') + fmtMg(d.maxDose)
                          + L(' mg per dose, so give ', ' mg par prise, donc on donne ') + fmtMg(n.dose) + ' mg');
   }
-  if (k.type === 'volume'){
+  if (k.type === 'volume' || k.type === 'courseVol' || k.type === 'bottles'){
     S.push(L('The bottle holds ', 'La bouteille contient ') + dec(k.conc.m) + L(' mg in every mL', ' mg dans chaque mL')
            + ' (' + t(k.conc.l) + ')');
-    S.push(fmtMg(n.dose) + ' mg ÷ ' + dec(k.conc.m) + ' mg/mL = ' + fmtMl(n.dose / k.conc.m) + ' mL');
+    var perDose = n.dose / k.conc.m;
+    S.push(fmtMg(n.dose) + ' mg ÷ ' + dec(k.conc.m) + ' mg/mL = ' + fmtMl(perDose) + L(' mL per dose', ' mL par prise'));
+  }
+  if (k.type === 'courseVol' || k.type === 'bottles'){
+    var pd = n.dose / k.conc.m, perDay = pd * d.doses, tot = perDay * k.days;
+    if (d.doses > 1)
+      S.push(fmtMl(pd) + L(' mL × ', ' mL × ') + d.doses + L(' doses a day = ', ' prises par jour = ') + fmtMl(perDay) + L(' mL a day', ' mL par jour'));
+    else
+      S.push(L('One dose a day, so that is ', 'Une seule prise par jour, donc c\'est ') + fmtMl(perDay) + L(' mL a day', ' mL par jour'));
+    S.push(fmtMl(perDay) + L(' mL × ', ' mL × ') + k.days + L(' days = ', ' jours = ') + fmtMl(tot) + L(' mL for the whole course', ' mL pour toute la cure'));
+    if (k.type === 'bottles'){
+      var nb = Math.ceil(tot / k.bottle - 1e-9);
+      S.push(fmtMl(tot) + ' mL ÷ ' + k.bottle + ' mL = ' + fmtMl(tot / k.bottle)
+             + L(' — you cannot dispense part of a bottle, so round UP to ', ' — on ne sert pas une fraction de bouteille, donc on arrondit VERS LE HAUT à ')
+             + nb);
+    }
   }
   return S;
 }
@@ -685,6 +755,33 @@ function pqTraps(){
       'That is the volume for the whole day. Divide the daily dose by the ' + d.doses + ' doses before you convert it to millilitres.',
       'C\'est le volume pour toute la journée. Divisez la dose quotidienne par les ' + d.doses + ' prises avant de la convertir en millilitres.')});
   }
+  if (k.type === 'courseVol'){
+    var pdv = n.dose / c.m;
+    T2.push({v:pdv, m:L(
+      'That is one single dose. Multiply it by the ' + d.doses + ' doses a day, then by the ' + k.days + ' days of the course.',
+      'C\'est une seule prise. Multipliez-la par les ' + d.doses + ' prises par jour, puis par les ' + k.days + ' jours de la cure.')});
+    if (d.doses > 1) T2.push({v:pdv * d.doses, m:L(
+      'That is one day\'s worth. The course runs ' + k.days + ' days, so multiply by ' + k.days + '.',
+      'C\'est ce qu\'il faut pour une journée. La cure dure ' + k.days + ' jours, il faut donc multiplier par ' + k.days + '.')});
+    if (d.doses > 1) T2.push({v:pdv * k.days, m:L(
+      'You counted one dose a day. There are ' + d.doses + ' doses a day, so multiply by ' + d.doses + ' as well.',
+      'Vous avez compté une seule prise par jour. Il y en a ' + d.doses + ', il faut donc aussi multiplier par ' + d.doses + '.')});
+    T2.push({v:n.dose * d.doses * k.days, m:L(
+      'Those are the milligrams needed for the course, not the millilitres. Divide by ' + dec(c.m) + ' mg/mL to turn them into a volume.',
+      'Ce sont les milligrammes nécessaires pour la cure, pas les millilitres. Divisez par ' + dec(c.m) + ' mg/mL pour obtenir un volume.')});
+  }
+  if (k.type === 'bottles'){
+    var tot2 = courseVol(k);
+    T2.push({v:tot2, m:L(
+      'That is the total volume in mL. The question asks how many bottles that is — divide it by ' + k.bottle + ' mL.',
+      'C\'est le volume total en mL. La question demande combien de bouteilles cela représente — divisez-le par ' + k.bottle + ' mL.')});
+    T2.push({v:tot2 / k.bottle, m:L(
+      'Right division, but a pharmacy cannot dispense part of a bottle. Always round UP to the next whole bottle.',
+      'La division est bonne, mais une pharmacie ne sert pas une fraction de bouteille. On arrondit toujours VERS LE HAUT à la bouteille suivante.')});
+    T2.push({v:Math.floor(tot2 / k.bottle), m:L(
+      'You rounded down. The patient would run out before the course is finished — always round up.',
+      'Vous avez arrondi vers le bas. Le patient manquerait de médicament avant la fin de la cure — on arrondit toujours vers le haut.')});
+  }
   T2.push({v:ans * 10, m:L('The digits are right, the decimal point is one place out — your answer is ten times too big.',
                            'Les chiffres sont bons, mais la virgule a glissé d\'une place — votre réponse est dix fois trop grande.')});
   T2.push({v:ans / 10, m:L('The digits are right, the decimal point is one place out — your answer is ten times too small.',
@@ -703,13 +800,22 @@ function renderPractice(){
   if (k.d.maxDay)       maxTxt = L(' (max ', ' (max ') + fmtMg(k.d.maxDay) + L(' mg/day)', ' mg/jour)');
   else if (k.d.maxDose) maxTxt = L(' (max ', ' (max ') + fmtMg(k.d.maxDose) + L(' mg/dose)', ' mg/dose)');
 
-  var ask = k.type === 'perDay' ? t(UI.askDay) : (k.type === 'volume' ? t(UI.askVol) : t(UI.askDose));
+  var ask = t(UI.askDose);
+  if (k.type === 'perDay') ask = t(UI.askDay);
+  else if (k.type === 'volume') ask = t(UI.askVol);
+  else if (k.type === 'courseVol') ask = t(UI.askCourse);
+  else if (k.type === 'bottles') ask = t(UI.askBottlesA) + k.bottle + t(UI.askBottlesB);
+
+  var abbr = freqAbbr(k.d);
+  var isCourse = (k.type === 'courseVol' || k.type === 'bottles');
+  var extra = '';
+  if (k.type === 'volume' || isCourse) extra += '<br>' + t(UI.youHave) + ' : ' + t(k.conc.l);
+  if (isCourse) extra += '<br>' + t(UI.prescribedFor) + ' : ' + k.days + ' ' + t(UI.days);
 
   var html = '<article class="rx pq rv">'
     + '<div class="pq__order"><span class="mono__k">' + t(UI.order) + '</span>'
-    + '<p class="pq__text">' + t(baseName(k.d.n)) + ' ' + ruleLine(k.d) + maxTxt + '</p>'
-    + '<p class="pq__meta"><strong>' + t(UI.child) + ' : ' + dec(k.w) + ' kg</strong>'
-    + (k.type === 'volume' ? '<br>' + t(UI.youHave) + ' : ' + t(k.conc.l) : '') + '</p></div>'
+    + '<p class="pq__text">' + t(baseName(k.d.n)) + ' ' + ruleLine(k.d) + (abbr ? ' · ' + abbr : '') + maxTxt + '</p>'
+    + '<p class="pq__meta"><strong>' + t(UI.child) + ' : ' + dec(k.w) + ' kg</strong>' + extra + '</p></div>'
     + '<p class="pq__ask">' + ask + '</p>'
     + '<div class="pq__row">'
     + '<input type="text" id="pq-ans" inputmode="decimal" autocomplete="off" aria-label="' + esc(t(UI.yourAnswer)) + '" placeholder="0">'
@@ -762,7 +868,7 @@ function checkAnswer(){
     state.pq.done = true;
     state.pq.fb = '<div class="fb fb--no"><b>' + t(UI.wrong) + '</b>'
       + '<p>' + (why || t(UI.genericWrong)) + '</p>'
-      + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(ans) + ' ' + pqUnit() + '.</strong></p>'
+      + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(ans) + ' ' + unitFor(ans) + '.</strong></p>'
       + stepsHtml() + '</div>';
   }
   save();
@@ -775,7 +881,7 @@ function revealAnswer(){
   if (!state.pq) return;
   if (!state.pq.done){ state.pscore.n++; state.pq.done = true; }
   state.pq.fb = '<div class="fb fb--tell"><b>' + t(UI.shown) + '</b>'
-    + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(pqAnswer()) + ' ' + pqUnit() + '.</strong></p>'
+    + '<p><strong>' + t(UI.theAnswer) + ' ' + fmtAns(pqAnswer()) + ' ' + unitFor(pqAnswer()) + '.</strong></p>'
     + stepsHtml() + '</div>';
   save();
   renderPractice();
