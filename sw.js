@@ -1,6 +1,6 @@
 /* Cache the whole app so it opens with no connection.
    Bump CACHE when you change any file, or browsers keep serving the old one. */
-const CACHE = 'posologie-v6';
+const CACHE = 'posologie-v7';
 const SHELL = [
   './',
   './index.html',
@@ -35,17 +35,15 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Everything else: serve from cache, refresh it in the background.
+  // Everything else: ask the network first so a new deploy is never masked by
+  // the cache, and fall back to the cached copy when there is no connection.
   e.respondWith(
-    caches.match(req).then((hit) => {
-      const live = fetch(req).then((res) => {
-        if (res && res.status === 200 && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      }).catch(() => hit);
-      return hit || live;
-    })
+    fetch(req).then((res) => {
+      if (res && res.status === 200 && res.type === 'basic') {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });

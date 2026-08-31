@@ -26,9 +26,16 @@
 <header class="appbar">
   <div class="appbar__in">
     <h1 id="h1"></h1>
-    <div class="toggle" role="group" aria-label="Language / Langue">
-      <button type="button" data-lang="e" aria-pressed="true">EN</button>
-      <button type="button" data-lang="f" aria-pressed="false">FR</button>
+    <div class="appbar__tools">
+      <button type="button" class="infobtn" id="f-info" data-act="welcome-open">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6h.01"/>
+        </svg>
+      </button>
+      <div class="toggle" role="group" aria-label="Language / Langue">
+        <button type="button" data-lang="e" aria-pressed="true">EN</button>
+        <button type="button" data-lang="f" aria-pressed="false">FR</button>
+      </div>
     </div>
   </div>
 </header>

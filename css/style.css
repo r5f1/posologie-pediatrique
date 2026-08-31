@@ -58,6 +58,13 @@ h1 .lede{color:var(--pink)}
 }
 .toggle button[aria-pressed=true]{background:var(--blue-soft); color:var(--blue-ink)}
 .toggle button:hover{color:var(--ink-2)}
+.appbar__tools{display:flex; align-items:center; gap:9px; flex:0 0 auto}
+.infobtn{
+  background:none; border:0; padding:5px; cursor:pointer; color:var(--ink-3);
+  line-height:0; border-radius:999px;
+}
+.infobtn:hover{color:var(--blue-ink); background:var(--blue-soft)}
+.infobtn svg{width:20px; height:20px; display:block}
 
 .controls{
   position:sticky; top:53px; z-index:20;

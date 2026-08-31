@@ -101,6 +101,7 @@ var UI = {
   genericWrong: T('That is not the number this calculation gives. Follow it through step by step:',
                   'Ce n\'est pas le nombre que donne ce calcul. Reprenons étape par étape :'),
   dispensing: T('Preparing and dispensing', 'Préparation et service'),
+  about: T('About this app', 'À propos de l\'application'),
   wTitle: T('Welcome', 'Bienvenue'),
   wLead: T('Built by a nursing student who has worked as a pharmacy technician. It brings together the two halves of pediatric medication: the clinical dose a nurse calculates, and the preparation math a pharmacy technician does before anything is handed over.',
            'Conçue par une étudiante en soins infirmiers ayant travaillé comme technicienne en pharmacie. L\'application réunit les deux moitiés du médicament pédiatrique : la dose clinique que l\'infirmière calcule, et le calcul de préparation que la technicienne en pharmacie fait avant que quoi que ce soit ne soit servi.'),
